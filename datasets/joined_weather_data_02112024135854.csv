@@ -1,0 +1,2 @@
+city,description,temperature_farenheit,feels_like_farenheit,minimun_temp_farenheit,maximum_temp_farenheit,pressure,humidity,wind_speed,time_of_record,sunrise_local_time,sunset_local_time,state,census_2020,land_area_sq_mile_2020
+Houston,mist,73.832,75.29,73.022,75.218,1018,93,3.6,2024-11-02 08:55:46,2024-11-02 07:36:08,2024-11-02 18:33:48,Texas,2304580,640.4
