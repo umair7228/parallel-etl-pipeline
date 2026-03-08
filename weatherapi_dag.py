@@ -1,11 +1,11 @@
 from airflow import DAG
 from datetime import timedelta, datetime
-from airflow.operators.dummy_operator import DummyOperator
+from airflow.operators.empty import EmptyOperator
 from airflow.utils.task_group import TaskGroup
-from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.providers.http.sensors.http import HttpSensor
 import json
-from airflow.providers.http.operators.http import SimpleHttpOperator
+from airflow.providers.http.operators.http import HttpOperator
 from airflow.operators.python import PythonOperator
 import pandas as pd
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -63,7 +63,7 @@ def save_joined_data_s3(task_instance):
     now = datetime.now()
     dt_string = now.strftime("%d%m%Y%H%M%S")
     dt_string = 'joined_weather_data_' + dt_string
-    df.to_csv(f"s3://rds-s3-um/{dt_string}.csv", index=False)
+    df.to_csv(f"s3://s3-parallet-test/{dt_string}.csv", index=False)
 
 default_args = {
     'owner': 'airflow',
@@ -79,16 +79,16 @@ default_args = {
 
 with DAG('weather_dag_2',
         default_args=default_args,
-        schedule_interval = '@daily',
+        schedule = '@daily',
         catchup=False) as dag:
 
-        start_pipeline = DummyOperator(
+        start_pipeline = EmptyOperator(
             task_id = 'tsk_start_pipeline'
         )
 
-        join_data = PostgresOperator(
+        join_data = SQLExecuteQueryOperator(
                 task_id='task_join_data',
-                postgres_conn_id = "postgres_conn",
+                conn_id = "postgres_conn",
                 sql= '''SELECT 
                     w.city,                    
                     description,
@@ -117,14 +117,14 @@ with DAG('weather_dag_2',
             python_callable=save_joined_data_s3
             )
 
-        end_pipeline = DummyOperator(
+        end_pipeline = EmptyOperator(
                 task_id = 'task_end_pipeline'
         )
 
         with TaskGroup(group_id = 'group_a', tooltip= "Extract_from_S3_and_weatherapi") as group_A:
-            create_table_1 = PostgresOperator(
+            create_table_1 = SQLExecuteQueryOperator(
                 task_id='tsk_create_table_1',
-                postgres_conn_id = "postgres_conn",
+                conn_id = "postgres_conn",
                 sql= '''  
                     CREATE TABLE IF NOT EXISTS city_look_up (
                     city TEXT NOT NULL,
@@ -135,22 +135,22 @@ with DAG('weather_dag_2',
                 '''
             )
 
-            truncate_table = PostgresOperator(
+            truncate_table = SQLExecuteQueryOperator(
                 task_id='tsk_truncate_table',
-                postgres_conn_id = "postgres_conn",
+                conn_id = "postgres_conn",
                 sql= ''' TRUNCATE TABLE city_look_up;
                     '''
             )
 
-            uploadS3_to_postgres  = PostgresOperator(
+            uploadS3_to_postgres  = SQLExecuteQueryOperator(
                 task_id = "tsk_uploadS3_to_postgres",
-                postgres_conn_id = "postgres_conn",
-                sql = "SELECT aws_s3.table_import_from_s3('city_look_up', '', '(format csv, DELIMITER '','', HEADER true)', 'rds-s3-um', 'us_city.csv', 'us-west-2');"
+                conn_id = "postgres_conn",
+                sql = "SELECT aws_s3.table_import_from_s3('city_look_up', '', '(format csv, DELIMITER '','', HEADER true)', '<s3_bucket>', 'us_city.csv', '<reagion>');"
             )
 
-            create_table_2 = PostgresOperator(
+            create_table_2 = SQLExecuteQueryOperator(
                 task_id='tsk_create_table_2',
-                postgres_conn_id = "postgres_conn",
+                conn_id = "postgres_conn",
                 sql= ''' 
                     CREATE TABLE IF NOT EXISTS weather_data (
                     city TEXT,
@@ -172,13 +172,13 @@ with DAG('weather_dag_2',
             is_houston_weather_api_ready = HttpSensor(
                 task_id ='tsk_is_houston_weather_api_ready',
                 http_conn_id='weathermap_api',
-                endpoint='/data/2.5/weather?q=houston&APPID=93bfb7d37477193ebe4f3104f3bf8a17'
+                endpoint='/data/2.5/weather?q=houston&APPID=<app_id>'
             )
 
-            extract_houston_weather_data = SimpleHttpOperator(
+            extract_houston_weather_data = HttpOperator(
                 task_id = 'tsk_extract_houston_weather_data',
                 http_conn_id = 'weathermap_api',
-                endpoint='/data/2.5/weather?q=houston&APPID=93bfb7d37477193ebe4f3104f3bf8a17',
+                endpoint='/data/2.5/weather?q=houston&APPID=<app_id>',
                 method = 'GET',
                 response_filter= lambda r: json.loads(r.text),
                 log_response=True
