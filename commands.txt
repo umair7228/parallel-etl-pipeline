@@ -1,4 +1,3 @@
-**************** Useful Commands ****************
 sudo apt update
 sudo apt install python3-pip
 sudo apt install python3.10-venv
@@ -9,28 +8,31 @@ sudo apt install s3fs
 sudo apt install fsspec
 sudo apt install apache-airflow
 sudo apt install apache-airflow-providers-postgres
+pip install apache-airflow-providers-http
+pip install awscli
 
 sudo apt install curl ca-certificates
 sudo install -d /usr/share/postgresql-common/pgdg
 sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
 sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-sudo apt update
-sudo apt -y install postgresql
+sudo apt -y install PostgreSQL
+aws configure
 
 ## Installing the aws_s3 extension
-psql -h endpoint -p 5432 -U postgres -W
+psql -h parallel-db-um.cvm4cgeo8imx.us-east-1.rds.amazonaws.com -p 5432 -U postgres -W
 
 ## Link to install aws extension
-https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PostgreSQL.S3Import.InstallExtension.html
+--# https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PostgreSQL.S3Import.InstallExtension.html
+CREATE EXTENSION aws_s3 CASCADE;
 
 ## Attach policy to role
 aws iam attach-role-policy \
-    --policy-arn arn:aws:iam:: :policy/postgresPolicy-yml-4 \
+    --policy-arn arn:aws:iam::767398088866:policy/postgresS3Policy-yml-4 \
     --role-name postgresql-S3-Role-yml-4
 
 ## Attach role to database
 aws rds add-role-to-db-instance \
-   --db-instance-identifier rds-db-um \
+   --db-instance-identifier parallel-db-um \
    --feature-name s3Import \
-   --role-arn arn:aws:iam:: :role/postgresql-Role-yml-4   \
-   --region us-west-2
+   --role-arn arn:aws:iam::767398088866:role/postgresql-S3-Role-yml-4 \
+   --region us-east-1
